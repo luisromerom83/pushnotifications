@@ -1,0 +1,94 @@
+name: Generar AAB para Google Play Console
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      default_url:
+        description: 'URL de la app desplegada (ej: https://pushnotifications.vercel.app)'
+        required: false
+        default: 'https://pushnotifications.vercel.app'
+
+jobs:
+  build-aab:
+    name: Compilar y Firmar Android App Bundle (.aab)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: ☕ Configurar Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🐘 Configurar Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: 🔑 Preparar Keystore de Firma
+        id: prepare-keystore
+        run: |
+          mkdir -p android/keystore
+          KEYSTORE_PATH="android/keystore/release.jks"
+          
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Usando Keystore configurado en GitHub Secrets..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $KEYSTORE_PATH
+            echo "STORE_FILE=$KEYSTORE_PATH" >> $GITHUB_ENV
+            echo "STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "Generando Keystore automático para pruebas de Google Play Console..."
+            keytool -genkeypair -v \
+              -keystore $KEYSTORE_PATH \
+              -alias pushinbox_key \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass playconsole123 \
+              -keypass playconsole123 \
+              -dname "CN=PushInbox, OU=Dev, O=Quadient, L=CDMX, S=CDMX, C=MX"
+            
+            echo "STORE_FILE=$KEYSTORE_PATH" >> $GITHUB_ENV
+            echo "STORE_PASSWORD=playconsole123" >> $GITHUB_ENV
+            echo "KEY_ALIAS=pushinbox_key" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=playconsole123" >> $GITHUB_ENV
+          fi
+
+      - name: 🛠️ Actualizar URL en Android si se proporcionó
+        run: |
+          TARGET_URL="${{ github.event.inputs.default_url }}"
+          if [ -n "$TARGET_URL" ] && [ "$TARGET_URL" != "https://pushnotifications.vercel.app" ]; then
+            HOST_NAME=$(echo "$TARGET_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
+            echo "Configurando target URL: $TARGET_URL (Host: $HOST_NAME)"
+            sed -i "s|https://pushnotifications.vercel.app|$TARGET_URL|g" android/app/build.gradle
+            sed -i "s|pushnotifications.vercel.app|$HOST_NAME|g" android/app/build.gradle
+          fi
+
+      - name: 🚀 Compilar Android App Bundle (.aab)
+        run: |
+          gradle -p android bundleRelease \
+            -PRELEASE_STORE_FILE=../$STORE_FILE \
+            -PRELEASE_STORE_PASSWORD=$STORE_PASSWORD \
+            -PRELEASE_KEY_ALIAS=$KEY_ALIAS \
+            -PRELEASE_KEY_PASSWORD=$KEY_PASSWORD
+
+      - name: 📦 Subir archivo AAB como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 14
+
+      - name: 💾 Subir Keystore de firma como artefacto (para futuras actualizaciones)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-keystore
+          path: android/keystore/release.jks
+          retention-days: 14

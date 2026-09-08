@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+
+# Archivos confidenciales y credenciales privadas
+serviceAccountKey.json
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel/
+
+# Archivos de compilación Android
+android/.gradle/
+android/build/
+android/app/build/
+*.keystore
+*.jks
+local.properties
+
+# Archivos de sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
