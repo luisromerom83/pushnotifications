@@ -150,6 +150,44 @@ print(response.json())
 
 ---
 
+## ☁️ Despliegue en Vercel (Frontend y Backend)
+
+Tanto la interfaz web como la API REST están configurados para ejecutarse en Vercel sin cambios:
+
+1. Ve a [Vercel Dashboard](https://vercel.com/dashboard) y haz clic en **"Add New... > Project"**.
+2. Selecciona e importa tu repositorio de GitHub: **`luisromerom83/pushnotifications`**.
+3. En la sección **Environment Variables**, agrega:
+   - **Nombre:** `FIREBASE_SERVICE_ACCOUNT_KEY`
+   - **Valor:** Pega todo el contenido de tu archivo `serviceAccountKey.json` en una sola línea (o en bloque JSON).
+4. Haz clic en **Deploy**.
+5. Vercel te proporcionará una URL de producción pública (ej: `https://pushnotifications-xxx.vercel.app`), que ya cuenta con HTTPS obligatorio para Web Push Notifications.
+
+---
+
+## 🤖 Compilación de Android App Bundle (.aab) para Google Play Console
+
+El repositorio cuenta con un **GitHub Action** automatizado que compila y firma el archivo `.aab` listo para subirlo a Google Play Console:
+
+### 1. ¿Cómo obtener el archivo `.aab`?
+1. Cada vez que hagas un `push` a la rama `main`, o bien desde la pestaña **Actions** en tu repositorio:
+   [https://github.com/luisromerom83/pushnotifications/actions](https://github.com/luisromerom83/pushnotifications/actions)
+2. Selecciona el workflow: **"Generar AAB para Google Play Console"**.
+3. Haz clic en la última ejecución exitosa.
+4. Al final de la página, en la sección **Artifacts**, descarga:
+   - **`app-release-aab`**: Archivo `.zip` que contiene el `app-release.aab` firmado para Google Play.
+   - **`release-keystore`**: La clave de firma utilizada (consérvala para futuras actualizaciones).
+
+### 2. Subir a Google Play Console (Prueba Cerrada / Closed Testing)
+1. Ingresa a [Google Play Console](https://play.google.com/console).
+2. Selecciona o crea tu aplicación (Nombre: *PushInbox*, Tipo: *App*, Gratis).
+3. En el menú lateral izquierdo, ve a **Release > Testing > Closed testing** (o *Pruebas cerradas*).
+4. En la pista de pruebas (Alpha/Closed track), haz clic en **"Manage track" > "Create new release"**.
+5. En la sección **App bundles**, arrastra y suelta tu archivo `app-release.aab` descargado.
+6. En **Release notes**, escribe una nota breve (ej. *Versión 1.0.0 - Prueba cerrada con notificaciones push*).
+7. Haz clic en **"Next"** y luego en **"Save and publish"** para iniciar la prueba cerrada con tus testers.
+
+---
+
 ## 🌟 Características de la Aplicación
 
 - **Diseño con Bootstrap 5.3**: Interfaz visual adaptable, limpia y receptiva para móviles y escritorios.
@@ -162,18 +200,28 @@ print(response.json())
   - Manejo en **primer plano** con alertas Toast de Bootstrap y efecto de sonido.
   - Al hacer clic en la notificación, se enfoca la app y se abre directamente el mensaje.
 - **Simulador de API Integrado**: Permite probar el envío de HTML y Push con 1 clic usando plantillas precargadas (Factura, Alerta de Seguridad, Boletín).
+- **PWA & TWA para Android**: Incluye `manifest.json`, iconos adaptativos e integración con `androidbrowserhelper` para publicación en Google Play Store.
 
 ---
 
 ## 📂 Estructura del Código
 
 ```text
-├── package.json                   # Dependencias de backend
+├── .github/workflows/
+│   └── build-aab.yml              # GitHub Action para compilar y firmar el AAB
+├── android/                       # Proyecto Android TWA para Google Play Store
+│   ├── app/build.gradle           # Configuración Gradle de la app Android
+│   └── app/src/main/              # Manifest, iconos mipmap y recursos nativos
+├── api/
+│   └── index.js                   # Adaptador Serverless para Vercel
+├── vercel.json                    # Configuración de despliegue en Vercel
+├── package.json                   # Dependencias de backend Express y Firebase
 ├── server.js                      # Servidor Express y API /api/inbox/send
 ├── serviceAccountKey.json.example # Plantilla para clave de cuenta de servicio
 ├── .env.example                   # Plantilla de variables de entorno
 └── public/
     ├── index.html                 # Interfaz con Bootstrap 5
+    ├── manifest.json              # PWA Web App Manifest
     ├── css/styles.css             # Estilos personalizados
     ├── js/
     │   ├── firebase-config.js     # Configuración de Firebase y VAPID Key
