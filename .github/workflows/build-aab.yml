@@ -34,11 +34,11 @@ jobs:
         id: prepare-keystore
         run: |
           mkdir -p android/keystore
-          KEYSTORE_PATH="android/keystore/release.jks"
+          KEYSTORE_PATH="$GITHUB_WORKSPACE/android/keystore/release.jks"
           
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "Usando Keystore configurado en GitHub Secrets..."
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $KEYSTORE_PATH
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$KEYSTORE_PATH"
             echo "STORE_FILE=$KEYSTORE_PATH" >> $GITHUB_ENV
             echo "STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
@@ -46,7 +46,7 @@ jobs:
           else
             echo "Generando Keystore automático para pruebas de Google Play Console..."
             keytool -genkeypair -v \
-              -keystore $KEYSTORE_PATH \
+              -keystore "$KEYSTORE_PATH" \
               -alias pushinbox_key \
               -keyalg RSA \
               -keysize 2048 \
@@ -74,10 +74,10 @@ jobs:
       - name: 🚀 Compilar Android App Bundle (.aab)
         run: |
           gradle -p android bundleRelease \
-            -PRELEASE_STORE_FILE=../$STORE_FILE \
-            -PRELEASE_STORE_PASSWORD=$STORE_PASSWORD \
-            -PRELEASE_KEY_ALIAS=$KEY_ALIAS \
-            -PRELEASE_KEY_PASSWORD=$KEY_PASSWORD
+            -PRELEASE_STORE_FILE="$STORE_FILE" \
+            -PRELEASE_STORE_PASSWORD="$STORE_PASSWORD" \
+            -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
+            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD"
 
       - name: 📦 Subir archivo AAB como artefacto
         uses: actions/upload-artifact@v4
