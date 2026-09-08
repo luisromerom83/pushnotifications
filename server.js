@@ -271,15 +271,12 @@ app.post('/api/inbox/send', async (req, res) => {
     if (tokens.length > 0) {
       const messagePayload = {
         tokens: tokens,
-        notification: {
-          title: pushTitle,
-          body: pushBody
-        },
         data: {
-          inboxId: inboxRef.id,
-          title: title,
+          title: pushTitle,
+          body: pushBody,
           pushTitle: pushTitle,
           pushBody: pushBody,
+          inboxId: inboxRef.id,
           createdAt: now,
           url: `/?inboxId=${inboxRef.id}`,
           click_action: `/?inboxId=${inboxRef.id}`
@@ -287,19 +284,6 @@ app.post('/api/inbox/send', async (req, res) => {
         webpush: {
           headers: {
             Urgency: 'high'
-          },
-          notification: {
-            title: pushTitle,
-            body: pushBody,
-            icon: '/assets/icon-192.png',
-            badge: '/assets/badge-72.png',
-            tag: `inbox-${inboxRef.id}`,
-            data: {
-              inboxId: inboxRef.id,
-              url: `/?inboxId=${inboxRef.id}`
-            },
-            requireInteraction: true,
-            vibrate: [200, 100, 200]
           },
           fcmOptions: {
             link: `/?inboxId=${inboxRef.id}`
@@ -444,24 +428,10 @@ app.post('/api/push/send', async (req, res) => {
 
       const messagePayload = {
         tokens: tokens,
-        notification: {
-          title: finalTitle,
-          body: finalBody
-        },
         data: customData,
         webpush: {
           headers: {
             Urgency: 'high'
-          },
-          notification: {
-            title: finalTitle,
-            body: finalBody,
-            icon: '/assets/icon-192.png',
-            badge: '/assets/badge-72.png',
-            tag: `push-${Date.now()}`,
-            data: customData,
-            requireInteraction: true,
-            vibrate: [200, 100, 200]
           },
           fcmOptions: {
             link: url || '/'

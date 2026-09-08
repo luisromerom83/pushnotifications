@@ -27,6 +27,14 @@ if (configParam) {
   }
 }
 
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
 try {
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
