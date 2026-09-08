@@ -348,6 +348,165 @@ app.post('/api/inbox/send', async (req, res) => {
   }
 });
 
+/**
+ * Endpoint para enviar SOLO NOTIFICACIÓN PUSH (sin HTML ni guardar en Inbox):
+ * POST /api/push/send
+ * 
+ * Recibe:
+ * - userEmail (o userId): destinatario
+ * - title (o pushTitle): título de la notificación
+ * - body (o pushBody): cuerpo de la notificación
+ * - url (opcional): link al hacer clic
+ * - data (opcional): metadata adicional
+ */
+app.post('/api/push/send', async (req, res) => {
+  const { userId, userEmail, title, pushTitle, body, pushBody, url, data } = req.body;
+
+  const finalTitle = (title || pushTitle || '').trim();
+  const finalBody = (body || pushBody || '').trim();
+
+  if (!userEmail && !userId) {
+    return res.status(400).json({
+      error: 'Debe especificar el destinatario usando "userEmail" o "userId".'
+    });
+  }
+
+  if (!finalTitle) {
+    return res.status(400).json({
+      error: 'El título de la notificación es obligatorio ("title" o "pushTitle").'
+    });
+  }
+
+  if (!finalBody) {
+    return res.status(400).json({
+      error: 'El cuerpo de la notificación es obligatorio ("body" o "pushBody").'
+    });
+  }
+
+  if (!firebaseAdminStatus.initialized) {
+    return res.status(503).json({
+      error: 'Firebase Admin SDK no está configurado en el servidor.',
+      details: firebaseAdminStatus.error
+    });
+  }
+
+  try {
+    let targetUid = userId;
+    let targetEmail = userEmail;
+
+    if (!targetUid && targetEmail) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(targetEmail);
+        targetUid = userRecord.uid;
+      } catch (authErr) {
+        const userSnap = await db.collection('users').where('email', '==', targetEmail).limit(1).get();
+        if (!userSnap.empty) {
+          targetUid = userSnap.docs[0].id;
+        } else {
+          return res.status(404).json({
+            error: `No se encontró ningún usuario con el correo: ${targetEmail}`,
+            details: authErr.message
+          });
+        }
+      }
+    }
+
+    // Obtener tokens FCM registrados para este usuario
+    const tokensSnap = await db.collection('users').doc(targetUid).collection('fcmTokens').get();
+    const tokens = [];
+    tokensSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.token) tokens.push(d.token);
+    });
+
+    let pushResult = {
+      sent: false,
+      tokensTargeted: tokens.length,
+      successCount: 0,
+      failureCount: 0,
+      details: []
+    };
+
+    if (tokens.length > 0) {
+      const customData = Object.assign({}, data || {}, {
+        title: finalTitle,
+        body: finalBody,
+        url: url || '/',
+        type: 'push_only',
+        timestamp: new Date().toISOString()
+      });
+
+      const messagePayload = {
+        tokens: tokens,
+        notification: {
+          title: finalTitle,
+          body: finalBody
+        },
+        data: customData,
+        webpush: {
+          headers: {
+            Urgency: 'high'
+          },
+          notification: {
+            title: finalTitle,
+            body: finalBody,
+            icon: '/assets/icon-192.png',
+            badge: '/assets/badge-72.png',
+            requireInteraction: true,
+            vibrate: [200, 100, 200]
+          },
+          fcmOptions: {
+            link: url || '/'
+          }
+        }
+      };
+
+      const response = await messaging.sendEachForMulticast(messagePayload);
+      pushResult.sent = true;
+      pushResult.successCount = response.successCount;
+      pushResult.failureCount = response.failureCount;
+
+      // Limpiar tokens inválidos o expirados
+      const invalidTokenPromises = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          pushResult.details.push({ token: tokens[idx].substring(0, 15) + '...', error: errorCode });
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            invalidTokenPromises.push(
+              db.collection('users').doc(targetUid).collection('fcmTokens').doc(tokens[idx]).delete()
+            );
+          }
+        }
+      });
+      if (invalidTokenPromises.length > 0) {
+        await Promise.all(invalidTokenPromises);
+      }
+    } else {
+      console.log(`ℹ️ El usuario ${targetUid} no tiene tokens FCM registrados actualmente.`);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: tokens.length > 0 ? 'Notificación Push enviada con éxito.' : 'El usuario no tiene tokens FCM registrados en este momento.',
+      userId: targetUid,
+      title: finalTitle,
+      body: finalBody,
+      pushResult
+    });
+
+  } catch (err) {
+    console.error('Error al procesar /api/push/send:', err);
+    return res.status(500).json({
+      error: 'Error interno del servidor al enviar la notificación push.',
+      details: err.message
+    });
+  }
+});
+
 // Ruta de captura para la SPA (Single Page Application)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

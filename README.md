@@ -144,8 +144,55 @@ payload = {
     "html": "<h1>Alerta de Seguridad</h1><p>Acceso desde una nueva IP.</p>"
 }
 
-response = requests.post("http://localhost:3000/api/inbox/send", json=payload)
+response = requests.post("https://pushnotifications-one.vercel.app/api/inbox/send", json=payload)
 print(response.json())
+```
+
+---
+
+## 🔔 Endpoint: Enviar Solo Notificación Push (Sin HTML)
+
+Si solo necesitas enviar una notificación push directa al dispositivo del usuario sin guardar ningún contenido en el Inbox:
+
+### Endpoint
+```http
+POST /api/push/send
+Content-Type: application/json
+```
+
+### Parámetros del Body (JSON)
+| Campo | Tipo | Obligatorio | Descripción |
+| :--- | :--- | :--- | :--- |
+| `userEmail` | String | Sí* | Correo del usuario registrado (o usar `userId`) |
+| `userId` | String | Sí* | UID del usuario en Firebase Auth |
+| `title` | String | **Sí** | Título de la notificación push (o usar `pushTitle`) |
+| `body` | String | **Sí** | Mensaje / contenido de la notificación push (o usar `pushBody`) |
+| `url` | String | Opcional | Enlace a abrir al hacer clic (por defecto `/`) |
+| `data` | Object | Opcional | Parámetros o metadata adicional para la app |
+
+### Ejemplo con cURL (Solo Push)
+```bash
+curl -X POST "https://pushnotifications-one.vercel.app/api/push/send" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userEmail": "usuario@ejemplo.com",
+    "title": "Recordatorio de Pago",
+    "body": "Tu pago vence el día de mañana. Haz clic para consultar."
+  }'
+```
+
+### Ejemplo con JavaScript / Fetch (Solo Push)
+```javascript
+const response = await fetch("https://pushnotifications-one.vercel.app/api/push/send", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userEmail: "usuario@ejemplo.com",
+    title: "Nueva Oferta Especial",
+    body: "Aprovecha 20% de descuento en tu próxima factura."
+  })
+});
+console.log(await response.json());
 ```
 
 ---
