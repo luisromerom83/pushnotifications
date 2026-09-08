@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       default_url:
-        description: 'URL de la app desplegada (ej: https://pushnotifications.vercel.app)'
+        description: 'URL de la app desplegada (ej: https://pushnotifications-one.vercel.app/)'
         required: false
-        default: 'https://pushnotifications.vercel.app'
+        default: 'https://pushnotifications-one.vercel.app/'
 
 jobs:
   build-aab:

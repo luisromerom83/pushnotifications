@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.quadient.pushnotifications",
+      "sha256_cert_fingerprints": [
+        "C8:09:90:03:FB:4E:20:1B:58:B3:46:5C:DC:14:2D:8B:44:0E:53:53:73:1F:93:75:AF:DF:F3:F2:4B:5F:1A:E3"
+      ]
+    }
+  }
+]

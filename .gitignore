@@ -10,12 +10,14 @@ serviceAccountKey.json
 # Vercel
 .vercel/
 
-# Archivos de compilación Android
+# Archivos de compilación Android y paquetes
 android/.gradle/
 android/build/
 android/app/build/
 *.keystore
 *.jks
+*.aab
+*.zip
 local.properties
 
 # Archivos de sistema y editores
