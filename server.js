@@ -31,11 +31,31 @@ let firebaseAdminStatus = {
 function initFirebaseAdmin() {
   try {
     const adminSDK = require('firebase-admin');
+
+    // Reutilizar instancia si ya fue inicializada (común en Vercel Serverless)
+    if (adminSDK.apps.length > 0) {
+      admin = adminSDK;
+      db = admin.firestore();
+      messaging = admin.messaging();
+      firebaseAdminStatus = { initialized: true, mode: 'existing_app', error: null };
+      return;
+    }
+
     const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(__dirname, 'serviceAccountKey.json');
 
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      // Credencial pasada como JSON en variable de entorno
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      // Credencial pasada como JSON en variable de entorno (soporta multilínea y Base64)
+      let rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
+      if (!rawKey.startsWith('{')) {
+        rawKey = Buffer.from(rawKey, 'base64').toString('utf8');
+      }
+      const serviceAccount = JSON.parse(rawKey);
+
+      // Corregir posibles saltos de línea escapados en private_key (común en variables de entorno Vercel)
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
       adminSDK.initializeApp({
         credential: adminSDK.credential.cert(serviceAccount)
       });
@@ -47,6 +67,10 @@ function initFirebaseAdmin() {
     } else if (fs.existsSync(serviceAccountPath)) {
       // Credencial desde archivo local serviceAccountKey.json
       const serviceAccount = require(serviceAccountPath);
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
       adminSDK.initializeApp({
         credential: adminSDK.credential.cert(serviceAccount)
       });
