@@ -1,6 +1,6 @@
 {
   "name": "push-notifications-inbox-demo",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Aplicación con Firebase Auth, Inbox de mensajes HTML, Push Notifications (FCM) y API REST externa",
   "main": "server.js",
   "scripts": {
