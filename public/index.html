@@ -257,9 +257,14 @@
               <div id="viewer-content" class="d-flex flex-column h-100 d-none">
                 <!-- Barra de herramientas del visor -->
                 <div class="p-3 border-bottom bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <div class="text-truncate me-2" style="max-width: 65%;">
-                    <h5 id="viewer-title" class="fw-bold mb-0 text-truncate">Título del Elemento</h5>
-                    <small id="viewer-date" class="text-muted">Fecha de recepción</small>
+                  <div class="d-flex align-items-center gap-2 text-truncate me-2" style="max-width: 70%;">
+                    <button id="btn-back-to-inbox" class="btn btn-sm btn-outline-secondary d-md-none flex-shrink-0" title="Volver a la bandeja">
+                      <i class="bi bi-arrow-left"></i>
+                    </button>
+                    <div class="text-truncate">
+                      <h5 id="viewer-title" class="fw-bold mb-0 text-truncate">Título del Elemento</h5>
+                      <small id="viewer-date" class="text-muted">Fecha de recepción</small>
+                    </div>
                   </div>
                   <div class="d-flex align-items-center gap-1">
                     <button id="btn-mark-unread" class="btn btn-sm btn-outline-secondary" title="Marcar como no leído">

@@ -281,7 +281,8 @@ app.post('/api/inbox/send', async (req, res) => {
           pushTitle: pushTitle,
           pushBody: pushBody,
           createdAt: now,
-          url: `/?inboxId=${inboxRef.id}`
+          url: `/?inboxId=${inboxRef.id}`,
+          click_action: `/?inboxId=${inboxRef.id}`
         },
         webpush: {
           headers: {
@@ -292,6 +293,11 @@ app.post('/api/inbox/send', async (req, res) => {
             body: pushBody,
             icon: '/assets/icon-192.png',
             badge: '/assets/badge-72.png',
+            tag: `inbox-${inboxRef.id}`,
+            data: {
+              inboxId: inboxRef.id,
+              url: `/?inboxId=${inboxRef.id}`
+            },
             requireInteraction: true,
             vibrate: [200, 100, 200]
           },
@@ -452,6 +458,8 @@ app.post('/api/push/send', async (req, res) => {
             body: finalBody,
             icon: '/assets/icon-192.png',
             badge: '/assets/badge-72.png',
+            tag: `push-${Date.now()}`,
+            data: customData,
             requireInteraction: true,
             vibrate: [200, 100, 200]
           },

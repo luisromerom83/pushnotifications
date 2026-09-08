@@ -156,6 +156,36 @@ body {
   background-color: #ffffff;
 }
 
+/* Adaptación responsive para pantallas móviles / PWA / TWA */
+@media (max-width: 767.98px) {
+  .inbox-container {
+    height: calc(100vh - 130px);
+    min-height: 480px;
+  }
+
+  .inbox-list-col {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    border-right: none;
+  }
+
+  .inbox-viewer-col {
+    display: none;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Cuando hay un mensaje seleccionado en pantalla móvil */
+  .inbox-container.mobile-show-viewer .inbox-list-col {
+    display: none !important;
+  }
+
+  .inbox-container.mobile-show-viewer .inbox-viewer-col {
+    display: flex !important;
+  }
+}
+
 /* Tarjetas de API Tester */
 .code-block-wrapper {
   position: relative;

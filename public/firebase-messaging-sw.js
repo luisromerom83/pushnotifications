@@ -34,53 +34,72 @@ try {
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Mensaje recibido en segundo plano:', payload);
 
-    const notificationTitle = payload.notification?.title || payload.data?.pushTitle || payload.data?.title || 'Nuevo mensaje en tu Inbox';
-    const notificationOptions = {
-      body: payload.notification?.body || payload.data?.pushBody || 'Tienes un nuevo contenido disponible.',
-      icon: '/assets/icon-192.png',
-      badge: '/assets/badge-72.png',
-      data: {
-        inboxId: payload.data?.inboxId,
-        url: payload.data?.url || '/'
-      },
-      tag: payload.data?.inboxId || 'inbox-notification',
-      renotify: true,
-      requireInteraction: true
-    };
+    // IMPORTANTE: Si el mensaje contiene payload.notification, el SDK de Firebase
+    // se encarga automáticamente de mostrar la notificación en el sistema.
+    // Solo mostramos una notificación manual si es un mensaje data-only (sin payload.notification)
+    // para evitar que el usuario reciba NOTIFICACIONES DUPLICADAS.
+    if (!payload.notification) {
+      const notificationTitle = payload.data?.pushTitle || payload.data?.title || 'Nuevo mensaje en tu Inbox';
+      const inboxId = payload.data?.inboxId || '';
+      const targetUrl = inboxId ? `/?inboxId=${inboxId}` : (payload.data?.url || '/');
 
-    return self.registration.showNotification(notificationTitle, notificationOptions);
+      const notificationOptions = {
+        body: payload.data?.pushBody || payload.data?.body || 'Tienes un nuevo contenido disponible.',
+        icon: '/assets/icon-192.png',
+        badge: '/assets/badge-72.png',
+        data: {
+          inboxId: inboxId,
+          url: targetUrl
+        },
+        tag: inboxId ? `inbox-${inboxId}` : `push-${Date.now()}`,
+        requireInteraction: true
+      };
+
+      return self.registration.showNotification(notificationTitle, notificationOptions);
+    }
   });
 } catch (err) {
   console.log('[SW] Firebase Messaging en SW:', err.message);
 }
 
-// Al hacer clic en la notificación recibida
+// Al hacer clic en la notificación recibida en el dispositivo
 self.addEventListener('notificationclick', function(event) {
   console.log('[SW] Clic en notificación:', event.notification);
   event.notification.close();
 
-  const targetUrl = event.notification.data?.inboxId 
-    ? '/?inboxId=' + event.notification.data.inboxId 
-    : '/';
+  // Extraer el inboxId y URL tanto de data directa como de la estructura interna FCM_MSG
+  const notifData = event.notification.data || {};
+  const fcmMsg = notifData.FCM_MSG || {};
+  const fcmData = fcmMsg.data || {};
+
+  const inboxId = notifData.inboxId || fcmData.inboxId || notifData.id || fcmData.id || '';
+  let targetUrl = notifData.url || fcmData.url || (inboxId ? '/?inboxId=' + inboxId : '/');
+
+  // Convertir a URL absoluta
+  const fullTargetUrl = new URL(targetUrl, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Si ya hay una pestaña abierta de la app, enfocarla y enviarle el mensaje
+      // 1. Si ya hay una ventana/pestaña abierta de la app, enfocarla y enviarle el mensaje
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          if (event.notification.data?.inboxId) {
+          if (inboxId) {
             client.postMessage({
               type: 'OPEN_INBOX_ITEM',
-              inboxId: event.notification.data.inboxId
+              inboxId: inboxId
             });
+          }
+          // Si el cliente no estaba en esa ruta exacta, navegarlo
+          if (inboxId && !client.url.includes(`inboxId=${inboxId}`) && 'navigate' in client) {
+            client.navigate(fullTargetUrl);
           }
           return client.focus();
         }
       }
-      // Si no hay ventana abierta, abrir una nueva
+      // 2. Si la app estaba cerrada, abrir una nueva ventana con la URL del item
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(fullTargetUrl);
       }
     })
   );

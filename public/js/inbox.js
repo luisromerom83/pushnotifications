@@ -25,6 +25,7 @@ const btnMarkUnread = document.getElementById('btn-mark-unread');
 const btnDeleteMessage = document.getElementById('btn-delete-message');
 const btnOpenNewTab = document.getElementById('btn-open-new-tab');
 const btnPrintHtml = document.getElementById('btn-print-html');
+const btnBackToInbox = document.getElementById('btn-back-to-inbox');
 
 /**
  * Inicia la escucha en tiempo real de los mensajes del usuario en Firestore
@@ -180,13 +181,62 @@ function renderInboxList() {
  * Selecciona un elemento y lo renderiza en el visor HTML
  */
 async function selectInboxItem(itemId) {
+  if (!itemId) return;
   selectedItemId = itemId;
+
+  // 1. Asegurar que la pestaña de Inbox esté activa
+  const inboxTabBtn = document.getElementById('nav-inbox-tab');
+  if (inboxTabBtn && !inboxTabBtn.classList.contains('active')) {
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+      const tabInstance = bootstrap.Tab.getOrCreateInstance(inboxTabBtn);
+      tabInstance.show();
+    } else {
+      inboxTabBtn.click();
+    }
+  }
+
+  // 2. Activar vista en móvil (oculta la lista de mensajes y muestra el visor)
+  const inboxContainer = document.querySelector('.inbox-container');
+  if (inboxContainer) {
+    inboxContainer.classList.add('mobile-show-viewer');
+  }
+
   renderInboxList();
 
-  const item = currentItems.find(i => i.id === itemId);
+  let item = currentItems.find(i => i.id === itemId);
+
+  // Si no está en memoria aún (por ejemplo si la notificación llegó antes de que Firestore sincronice el snapshot)
+  if (!item && window.db && window.currentUser) {
+    try {
+      const docSnap = await window.db
+        .collection('users')
+        .doc(window.currentUser.uid)
+        .collection('inbox')
+        .doc(itemId)
+        .get();
+
+      if (docSnap.exists) {
+        item = { id: docSnap.id, ...docSnap.data() };
+        currentItems.unshift(item);
+        renderInboxList();
+      }
+    } catch (err) {
+      console.warn('No se pudo obtener el mensaje directamente de Firestore:', err);
+    }
+  }
+
   if (!item) return;
 
   displayHtmlContent(item);
+
+  // Actualizar URL con inboxId sin recargar la página
+  try {
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('inboxId', itemId);
+    window.history.replaceState(null, '', newUrl.toString());
+  } catch (e) {
+    // Ignorar si el contexto no permite history.replaceState
+  }
 
   // Marcar como leído en Firestore
   if (!item.read && window.db && window.currentUser) {
@@ -203,6 +253,25 @@ async function selectInboxItem(itemId) {
       console.warn('No se pudo marcar como leído:', err);
     }
   }
+}
+
+/**
+ * Cierra la vista del visor en móvil y regresa a la lista
+ */
+function closeMobileViewer() {
+  const inboxContainer = document.querySelector('.inbox-container');
+  if (inboxContainer) {
+    inboxContainer.classList.remove('mobile-show-viewer');
+  }
+  selectedItemId = null;
+  resetViewer();
+  renderInboxList();
+
+  try {
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.delete('inboxId');
+    window.history.replaceState(null, '', newUrl.toString());
+  } catch (e) {}
 }
 
 /**
@@ -356,13 +425,32 @@ if (inboxSearchInput) {
 function checkUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
   const inboxId = urlParams.get('inboxId');
-  if (inboxId && !selectedItemId) {
-    const exists = currentItems.find(i => i.id === inboxId);
-    if (exists) {
-      selectInboxItem(inboxId);
-    }
+  if (inboxId) {
+    selectInboxItem(inboxId);
   }
 }
+
+// Botón de regreso al listado en pantallas móviles
+if (btnBackToInbox) {
+  btnBackToInbox.addEventListener('click', closeMobileViewer);
+}
+
+// Escuchar mensajes desde el Service Worker cuando se hace clic en una notificación
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'OPEN_INBOX_ITEM' && event.data.inboxId) {
+      console.log('📬 [inbox.js] Evento OPEN_INBOX_ITEM recibido vía Service Worker:', event.data.inboxId);
+      selectInboxItem(event.data.inboxId);
+    }
+  });
+}
+
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'OPEN_INBOX_ITEM' && event.data.inboxId) {
+    console.log('📬 [inbox.js] Evento OPEN_INBOX_ITEM recibido vía window:', event.data.inboxId);
+    selectInboxItem(event.data.inboxId);
+  }
+});
 
 // Utilidades de formato
 function formatDate(dateStr) {
